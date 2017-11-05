@@ -1,16 +1,24 @@
 #!/usr/bin/env python
 
 # Author: Abaraham Pasamar (apasamar [at] incide [dot] es
-# Date: 2015-02-01
+# Date: 2017-11-05
 # version: 0.2
-# This script is a GMAIL (IMAP) Command Line Client. You can read mailboxes and show email header/body, etc
+# This script is a GMAIL (IMAP) client. You can read mailboxes and show email header/body, etc
+# Added custom search strings, email export and encrypted support (via system gpg tools)
 
-import imaplib, email, email.header, getpass, os, sys, datetime, time
+import imaplib, email, email.header, getpass, os, sys, datetime, time, os
+import pprint
 
-###### Texttable is used to show Mailbox in Simple-ASCII Table Format ######
 from texttable import Texttable
-###### Colorama is used for colored output printing ######
 from colorama import *
+
+###############################
+# Simple header process is slow
+# Logging all commands - sessions
+# colored/not colored output
+# export emails to file
+# hashing
+# Select Folder/mailbox
 
 ###### CREDENTIALS #############
 mailuser='your_email_account_here@domain.xx'
@@ -20,15 +28,21 @@ mailpass='your_pasword_here'
 ###### Texttable #######
 t = Texttable()
 header=["#","From","To","Date","Subject"]
-t.set_cols_width([5,25,25,40,40])         # Set cols width
-t.set_cols_align(['l','l','l','l','l'])   #  Set column alignment
+t.set_cols_width([5,25,25,40,40])
+t.set_cols_align(['l','l','l','l','l'])
 
 #######################
 
 ####### DATA #########
 src_folder_name='Inbox'
-#src_folder_name='[Gmail]/Spam'
+#src_folder_name='[Gmail]/Inbox'
 ######################
+
+def wait_key():
+	try:
+		input("Press enter to continue")
+	except SyntaxError:
+		pass
 
 def read_single_keypress():
     """Waits for a single keypress on stdin.
@@ -93,6 +107,9 @@ def getmailid():
 	num = input('Choose an email id (#): ')
 	return int(num)
 
+def getsearchstring():
+	str = input('Enter a VALID Search String (ex. \'(FROM "John Doe")\' ): ')
+	return str
 
 def fetch_email(M,msgid):
 	rv, data = M.fetch(msgid, '(RFC822)')
@@ -110,22 +127,19 @@ def search_emails(M,searchstring):
 	return data
 
 ####### PROCESS MAILBOX ######
-def process_mailbox(M):
+def process_mailbox(M,searchstring):
 	"""
 	mailbox iteration
 	return mailbox email_ids
 	"""
 	#######################
 	###### READ MAILBOX #######
-	print ""
-	searchstring="ALL"
+	#print ""
 	data=search_emails(M,searchstring)
 	msg_ids=data[0].split()
 	#print msg_ids
 	return msg_ids
-###############################
 
-####### SHOW EMAIL IDs ######
 def show_emails(emails_ids):
 	"""
 	print email_ids (main fields) using table output
@@ -134,12 +148,11 @@ def show_emails(emails_ids):
 	row=[]
 	###### Texttable #######
 	t = Texttable()
-	header=["#","From","To","Date","Subject"]
-	t.set_cols_width([6,25,25,25,40])
-	t.set_cols_align(['l','l','l','l','l'])
+	header=["#","Crypt","From","To","Date","Subject"]
+	t.set_cols_width([6,5,25,25,25,40])
+	t.set_cols_align(['l','l','l','l','l','l'])
 	t.add_row(header)
 	#######################
-
 	#print emails
 	for msgid in emails_ids:
 		msg=fetch_email(m,msgid)
@@ -149,6 +162,12 @@ def show_emails(emails_ids):
 		else:
 			subject = subject_decode[0]
 		row.append(msgid) # Select msgig
+		# encrypted email?
+		if 'multipart/encrypted' in msg['Content-Type']:
+			encrypted='yes'
+		else:
+			encrypted='no'
+		row.append(encrypted)
 		from_decode =email.header.decode_header(msg['From'])[0]
 		if from_decode[1]<>None:
 			From=from_decode[0].decode(from_decode[1]).encode('utf-8')
@@ -175,14 +194,17 @@ def show_emails(emails_ids):
 	print(Fore.WHITE)
 	print t.draw() # Print email table
 	print(Fore.RESET + Back.RESET + Style.RESET_ALL)
-###############################
+
 
 
 def select_email():
 	emailid=getmailid()
 	msg=fetch_email(m,emailid)
-	print "print header, text or both (h/t/b):"
+	print "print standard, only header, only text or full (s/h/t/b):"
 	key=read_single_keypress()
+	if key=='s':
+		print_simple_header(msg)
+		print_text(msg)
 	if key=='h':
 		print_header(msg)
 	if key=='t':
@@ -190,6 +212,16 @@ def select_email():
 	if key=='b':
 		print_header(msg)
 		print_body(msg)
+	export(msg)
+
+def print_simple_header(msg):
+	header_elements=['From','To','Date','Subject']
+	parser=email.parser.HeaderParser()
+	header=parser.parsestr(msg.as_string())
+	for item in header.items():
+		if item[0] in header_elements:
+			print(Fore.GREEN+item[0]+": "+Fore.WHITE+item[1]+Fore.RESET)
+
 
 def print_header(msg):
 	print(Fore.RED+"==================================")
@@ -213,11 +245,26 @@ def print_body(msg):
 	print(Fore.RESET + Back.RESET + Style.RESET_ALL+" ")
 	print_text(msg)
 
-######################
+def export(msg):
+	print (Fore.BLUE+"Do you want to export this email (y/n):")
+	filename='temp.eml'
+	key=read_single_keypress()
+	if key=='y':
+		export_email(msg,filename)
+		open_email(filename)
+
+def export_email(msg,filename):
+	f=open(filename,'w') # Open file for each fetched email
+	f.write(str(msg)) # Write email content to file
+	f.close()
+
+def open_email(filename):
+	os.system("open "+filename)
 
 ######################
-######  MAIN #########
 ######################
+
+######  MAIN #######
 
 start_time = time.time()
 
@@ -230,17 +277,26 @@ except m.error:
     sys.exit(1)
 #####################
 
-##### show mailboxes list ####
+## show mailboxes list ##
 #show_mailboxes(m)
 
-###### Select MAILBOX #######
+## Select MAILBOX ##
 rv, data = m.select(mailbox=src_folder_name, readonly=True) # READONLY
 ####################
 
 if rv == 'OK':
-	print (Fore.BLUE+"Processing mailbox... %s, please wait.\n"%src_folder_name)
+	print(Fore.RESET+"\nSelect search: Inbox (i) | Encrypted Messages (e) | Custom Search (c)")
+	#wait_key()
+	searchstring="ALL"
+	key=read_single_keypress()
+	if key=='e':
+		searchstring='(TEXT \"encrypted\")'
+	if key=='c':
+    		searchstring=getsearchstring()
+		
+	print (Fore.BLUE+"Processing mailbox... %s with search=%s, please wait.\n"%(src_folder_name,searchstring))
 	## Do something with the mailbox ##
-	msg=process_mailbox(m)
+	msg_ids=process_mailbox(m,searchstring)  # SEARCH STRING
 	### time calculation
 	now=time.time()
 	sec="process_mailbox: - %.2f seconds -" % (now - start_time)
@@ -248,8 +304,8 @@ if rv == 'OK':
 	###
 	start_time = time.time()
 	reverse_ids=[]
-	for i in reversed(msg):
-		reverse_ids.append(i) # read in reverse order (newer first)
+	for i in reversed(msg_ids):
+		reverse_ids.append(i) # read in reverse order
 	block=10
 	page_list=chunks(reverse_ids,block)
 	page=1
@@ -258,11 +314,8 @@ if rv == 'OK':
 	now=time.time()
 	sec="show_email: - %.2f seconds -" % (now - start_time)
 	print(Fore.BLUE+sec)
-
-
-######### MAIN MENU #########
-
-	while True: 
+	###
+	while True:
 		print(Fore.RESET+"\nMenu: n (next page) | b (previous page) | s (select email id) | g (goto page) | q (quit)")
 		#wait_key()
 		key=read_single_keypress()
@@ -328,5 +381,5 @@ print(Fore.BLUE+"Exiting...bye!")
 print(Fore.RESET + Back.RESET + Style.RESET_ALL)
 m.close()
 m.logout()
-#############
+
 

@@ -1,5 +1,6 @@
 # gmail-clc
 Gmail Command Line Client
+
 Works with any IMAP account
 
 Youtube Demo Video:

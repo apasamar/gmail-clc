@@ -21,7 +21,9 @@ from colorama import *
 # Select Folder/mailbox
 
 ###### CREDENTIALS #############
-mailuser='your_email_account_here@domain.xx'
+#mailuser='your_email_account_here@domain.xx'
+#mailpas='your_pass_here'
+
 ###############################
 
 ###### Texttable #######
@@ -120,15 +122,15 @@ def getfolder():
 def fetch_email(M,msgid):
 	rv, data = M.fetch(msgid, '(RFC822)')
 	if rv != 'OK':
-		print "ERROR getting message", msgid
+		print("ERROR getting message", msgid)
 		return
 		### Get Message ##
-	return email.message_from_string(data[0][1])
+	return email.message_from_string(data[0][1].decode('utf-8'))
 
 def search_emails(M,searchstring):
 	rv, data = M.search(None, searchstring)
 	if rv != 'OK':
-		print "No messages found!"
+		print("No messages found!")
 		return
 	return data
 
@@ -164,7 +166,7 @@ def show_emails(emails_ids):
 	for msgid in emails_ids:
 		msg=fetch_email(m,msgid)
 		subject_decode = email.header.decode_header(msg['Subject'])[0]
-		if subject_decode[1]<>None:
+		if subject_decode[1]!=None:
 			subject = subject_decode[0].decode(subject_decode[1]).encode('utf-8')
 		else:
 			subject = subject_decode[0]
@@ -176,22 +178,22 @@ def show_emails(emails_ids):
 			encrypted='no'
 		row.append(encrypted)
 		from_decode =email.header.decode_header(msg['From'])[0]
-		if from_decode[1]<>None:
+		if from_decode[1]!=None:
 			From=from_decode[0].decode(from_decode[1]).encode('utf-8')
 		else:
 			From=from_decode[0]
 		to_decode=email.header.decode_header(msg['To'])[0]
-		if to_decode[1]<>None:
+		if to_decode[1]!=None:
 			To=to_decode[0].decode(to_decode[1]).encode('utf-8')
 		else:
 			To=to_decode[0]
 		row.append(From) # Select From
 		row.append(To)   # Select To
-        	date_tuple = email.utils.parsedate_tz(msg['Date'])
-        	if date_tuple:
-            		local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
-	    		#row.append(local_date.strftime("%a, %d %b %Y %H:%M:%S"))
-	    		row.append(local_date.strftime("%Y-%m-%d %H:%M:%S"))
+		date_tuple = email.utils.parsedate_tz(msg['Date'])
+		if date_tuple:
+			local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
+	    	#row.append(local_date.strftime("%a, %d %b %Y %H:%M:%S"))
+			row.append(local_date.strftime("%Y-%m-%d %H:%M:%S"))
 		row.append(subject) # Select Subject
 		###
 		t.add_row(row) # Generate email table
@@ -199,7 +201,7 @@ def show_emails(emails_ids):
 		row=[] # Clear ROW
 
 	print(Fore.WHITE)
-	print t.draw() # Print email table
+	print(t.draw()) # Print email table
 	print(Fore.RESET + Back.RESET + Style.RESET_ALL)
 
 
@@ -208,7 +210,7 @@ def select_email():
 	emailid=getmailid()
 	msg=fetch_email(m,emailid)
 	print(Fore.BLUE+"")
-	print "print standard, only header, only text or full (s/h/t/b):"
+	print("print standard, only header, only text or full (s/h/t/b):")
 	key=read_single_keypress()
 	if key=='s':
 		print_simple_header(msg)
@@ -244,7 +246,7 @@ def print_header(msg):
 def print_text(msg):
 	for part in msg.walk():
 		if part.get_content_type() == 'text/plain':
-				print part.get_payload(decode=True) # prints the raw text
+				print(part.get_payload(decode=True)) # prints the raw text
 
 def print_body(msg):
 	print(Fore.RED+"==================================")
@@ -278,7 +280,7 @@ def main_menu(src_folder_name):
 	searchstring="ALL"
 	key=read_single_keypress()
 	if key=='e':
-		searchstring='(TEXT \"encrypted\")'
+		searchstring='(TEXT \"BEGIN PGP MESSAGE\")'
 	if key=='c':
     		searchstring=getsearchstring()
 	if key=='f':
@@ -387,7 +389,7 @@ m = imaplib.IMAP4_SSL('imap.gmail.com', 993)
 try:
 	m.login(mailuser, mailpass)
 except m.error:
-    print "LOGIN FAILED!!! "
+    print("LOGIN FAILED!!! ")
     sys.exit(1)
 #####################
 
@@ -406,7 +408,7 @@ if rv == 'OK':
 	while True:
 		inbox_menu(page_list,page)
 else:
-	print "ERROR: Unable to open mailbox: %s --> %s "%(src_folder_name,rv)
+	print("ERROR: Unable to open mailbox: %s --> %s "%(src_folder_name,rv))
 
 
 ## Logout ##

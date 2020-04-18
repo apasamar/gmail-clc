@@ -34,8 +34,6 @@ t.set_cols_align(['l','l','l','l','l'])
 
 #######################
 
-
-
 def wait_key():
 	try:
 		input("Press enter to continue")
@@ -275,6 +273,7 @@ def open_email(filename):
 
 
 def main_menu(src_folder_name):
+	page=1
 	print(Fore.RESET+"\nSelect search: Inbox (i) | Encrypted Messages (e) | Change Folder (f) | Custom Search (c)")
 	#wait_key()
 	searchstring="ALL"
@@ -302,7 +301,6 @@ def main_menu(src_folder_name):
 		reverse_ids.append(i) # read in reverse order
 	block=10
 	page_list=chunks(reverse_ids,block)
-	page=1
 	show_emails(page_list[page-1])
 	### time calculation
 	now=time.time()
@@ -319,6 +317,8 @@ def inbox_menu(page_list,page):
 		start_time = time.time()
 		page+=1
 		print(Fore.BLUE+"'n' (next page), please wait...")
+		#print(page)
+		#print(page_list[page-1])
 		show_emails(page_list[page-1])
 		print(Fore.GREEN+"--page %d --"%page)
 		### time calculation
@@ -376,6 +376,7 @@ def inbox_menu(page_list,page):
 		print(Fore.BLUE+sec)
 	if key=='q':
 		sys.exit()
+	return page
 
 
 
@@ -406,7 +407,7 @@ if rv == 'OK':
 	page=1
 	page_list=main_menu(src_folder_name)
 	while True:
-		inbox_menu(page_list,page)
+		page=inbox_menu(page_list,page)
 else:
 	print("ERROR: Unable to open mailbox: %s --> %s "%(src_folder_name,rv))
 
